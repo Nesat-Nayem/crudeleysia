@@ -5,7 +5,10 @@ import { connectDB, closeDB } from './config/mongoose';
 import { userRoutes } from './routes/user.routes';
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Only load .env in development
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
 
 const app = new Elysia()
   // Add CORS
@@ -153,22 +156,34 @@ async function startServer() {
     }
     
     // Start the server regardless of database connection
-    const port = process.env.PORT || 3000;
+    const port = Number(process.env.PORT) || 3000;
     const hostname = process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost';
+    
+    // Debug logging for Railway
+    console.log(`🔍 Environment: NODE_ENV=${process.env.NODE_ENV}`);
+    console.log(`🔍 Port from ENV: ${process.env.PORT} (parsed as: ${port})`);
+    console.log(`🔍 Railway Domain: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'Not set'}`);
     
     app.listen({
       port: port,
       hostname: '0.0.0.0' // Listen on all interfaces for Railway
     });
     
-    console.log(`🚀 Server is running at http://${hostname}:${port}`);
-    console.log(`📚 Swagger documentation available at http://${hostname}:${port}/swagger`);
+    console.log(`🚀 Server is running on port ${port}`);
+    console.log(`📚 Swagger documentation available at http://localhost:${port}/swagger`);
     if (process.env.RAILWAY_PUBLIC_DOMAIN) {
       console.log(`🌐 Public URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
       console.log(`🌐 Swagger URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN}/swagger`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Failed to start server:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      syscall: error.syscall,
+      port: process.env.PORT,
+      parsedPort: Number(process.env.PORT)
+    });
     process.exit(1);
   }
 }
