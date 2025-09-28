@@ -156,17 +156,24 @@ async function startServer() {
     }
     
     // Start the server regardless of database connection
-    const port = Number(process.env.PORT) || 3000;
-    const hostname = process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost';
+    // Railway provides PORT as an environment variable - it MUST be used
+    const portString = process.env.PORT;
+    if (!portString && process.env.RAILWAY_PUBLIC_DOMAIN) {
+      throw new Error('Railway PORT environment variable is not set! Please check Railway configuration.');
+    }
+    
+    const port = portString ? parseInt(portString, 10) : 3000;
+    const hostname = '0.0.0.0'; // Always bind to all interfaces for Railway
     
     // Debug logging for Railway
-    console.log(`🔍 Environment: NODE_ENV=${process.env.NODE_ENV}`);
-    console.log(`🔍 Port from ENV: ${process.env.PORT} (parsed as: ${port})`);
-    console.log(`🔍 Railway Domain: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'Not set'}`);
+    console.log(`🔍 Environment: NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔍 Port from ENV: "${process.env.PORT}" (parsed as: ${port})`);
+    console.log(`🔍 Railway Domain: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'Not set (local development)'}`);
+    console.log(`🔍 All ENV keys:`, Object.keys(process.env).filter(key => key.includes('RAILWAY') || key === 'PORT'));
     
     app.listen({
       port: port,
-      hostname: '0.0.0.0' // Listen on all interfaces for Railway
+      hostname: hostname
     });
     
     console.log(`🚀 Server is running on port ${port}`);
