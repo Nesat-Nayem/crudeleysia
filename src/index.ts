@@ -156,18 +156,16 @@ async function startServer() {
     // - In local development, Bun's dev server sets PORT (e.g., 2020). Avoid using it for the app server to prevent EADDRINUSE.
     // - Use APP_PORT locally. In Railway/production, use PORT.
     const appPortEnv = process.env.APP_PORT;
-    const bunDevPort = process.env.PORT; // set by Bun dev server when using --watch
-    const isRailway = Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
-
-    if (!bunDevPort && isRailway) {
-      throw new Error('Railway PORT environment variable is not set! Please check Railway configuration.');
-    }
+    const portEnv = process.env.PORT; // set by Railway or Bun dev server
+    const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_ENVIRONMENT);
 
     const port = appPortEnv
       ? parseInt(appPortEnv, 10)
-      : isRailway && bunDevPort
-        ? parseInt(bunDevPort, 10)
-        : 3000;
+      : isRailway && portEnv
+        ? parseInt(portEnv, 10)
+        : portEnv
+          ? 3000 // Local dev with Bun --watch
+          : 3000;
     const hostname = '0.0.0.0'; // Always bind to all interfaces for Railway
     
     // Debug logging for Railway
