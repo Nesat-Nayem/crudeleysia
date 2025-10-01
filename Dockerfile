@@ -9,15 +9,15 @@ WORKDIR /app
 # Install dependencies
 FROM base AS install
 COPY package.json bun.lock* ./
+# Copy prisma schema BEFORE install (needed for postinstall script)
+COPY prisma ./prisma
 RUN bun install --frozen-lockfile --production
 
-# Build stage - Generate Prisma Client
+# Build stage - already has Prisma Client from postinstall
 FROM base AS build
 COPY --from=install /app/node_modules ./node_modules
+COPY --from=install /app/prisma ./prisma
 COPY . .
-
-# Generate Prisma Client
-RUN bun x prisma generate
 
 # Production stage
 FROM base AS release
