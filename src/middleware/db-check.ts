@@ -1,9 +1,9 @@
-import mongoose from 'mongoose';
+import { prisma } from '../config/prisma';
 
-export function checkDatabaseConnection() {
-  const isConnected = mongoose.connection.readyState === 1;
-  
-  if (!isConnected) {
-    throw new Error('Database is not connected. Please ensure MongoDB Atlas allows access from your IP address.');
+export async function checkDatabaseConnection() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    throw new Error('Database is not connected. Please ensure DATABASE_URL is set and the PostgreSQL server is reachable.');
   }
 }

@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { cors } from '@elysiajs/cors';
-import { connectDB, closeDB } from './config/mongoose';
+import { connectDB, closeDB, prisma } from './config/prisma';
 import { userRoutes } from './routes/user.routes';
 import dotenv from 'dotenv';
 
@@ -26,7 +26,7 @@ const app = new Elysia()
         info: {
           title: 'User CRUD API',
           version: '1.0.0',
-          description: 'ElysiaJS User CRUD API with MongoDB Atlas',
+          description: 'ElysiaJS User CRUD API with PostgreSQL (Prisma)',
           contact: {
             name: 'API Support',
             email: 'support@example.com'
@@ -46,7 +46,7 @@ const app = new Elysia()
           {
             url: process.env.RAILWAY_PUBLIC_DOMAIN 
               ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-              : `http://localhost:${process.env.PORT || 3000}`,
+              : `http://localhost:${process.env.APP_PORT || process.env.PORT || 3000}`,
             description: process.env.RAILWAY_PUBLIC_DOMAIN ? 'Production server' : 'Development server'
           }
         ]
@@ -76,16 +76,13 @@ const app = new Elysia()
   .get('/health', async () => {
     try {
       await connectDB();
-      // Check if mongoose is connected
-      const mongoose = (await import('mongoose')).default;
-      const isConnected = mongoose.connection.readyState === 1;
-      
+      await prisma.$queryRaw`SELECT 1`;
       return {
-        success: isConnected,
-        message: isConnected ? 'API and database are healthy' : 'Database not connected',
+        success: true,
+        message: 'API and database are healthy',
         status: {
           api: 'healthy',
-          database: isConnected ? 'connected' : 'disconnected'
+          database: 'connected'
         },
         timestamp: new Date().toISOString()
       };
@@ -145,29 +142,37 @@ const app = new Elysia()
 // Connect to database and start server
 async function startServer() {
   try {
-    // Try to connect to MongoDB, but don't fail if it doesn't work
+    // Try to connect to PostgreSQL, but don't fail if it doesn't work
     try {
       await connectDB();
       console.log('✅ Database connected successfully');
     } catch (dbError: any) {
       console.warn('⚠️ Database connection failed:', dbError.message);
       console.warn('⚠️ Server will start without database functionality');
-      console.warn('💡 For MongoDB Atlas: Make sure to whitelist your IP address or use 0.0.0.0/0 for access from anywhere');
     }
     
     // Start the server regardless of database connection
-    // Railway provides PORT as an environment variable - it MUST be used
-    const portString = process.env.PORT;
-    if (!portString && process.env.RAILWAY_PUBLIC_DOMAIN) {
+    // Port selection
+    // - In local development, Bun's dev server sets PORT (e.g., 2020). Avoid using it for the app server to prevent EADDRINUSE.
+    // - Use APP_PORT locally. In Railway/production, use PORT.
+    const appPortEnv = process.env.APP_PORT;
+    const bunDevPort = process.env.PORT; // set by Bun dev server when using --watch
+    const isRailway = Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
+
+    if (!bunDevPort && isRailway) {
       throw new Error('Railway PORT environment variable is not set! Please check Railway configuration.');
     }
-    
-    const port = portString ? parseInt(portString, 10) : 3000;
+
+    const port = appPortEnv
+      ? parseInt(appPortEnv, 10)
+      : isRailway && bunDevPort
+        ? parseInt(bunDevPort, 10)
+        : 3000;
     const hostname = '0.0.0.0'; // Always bind to all interfaces for Railway
     
     // Debug logging for Railway
     console.log(`🔍 Environment: NODE_ENV=${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔍 Port from ENV: "${process.env.PORT}" (parsed as: ${port})`);
+    console.log(`🔍 APP_PORT: "${process.env.APP_PORT}"  PORT: "${process.env.PORT}"  -> using: ${port}`);
     console.log(`🔍 Railway Domain: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'Not set (local development)'}`);
     console.log(`🔍 All ENV keys:`, Object.keys(process.env).filter(key => key.includes('RAILWAY') || key === 'PORT'));
     

@@ -8,19 +8,24 @@
     "start": "bun run src/index.ts",
     "start:dev": "bun run src/index.ts",
     "build": "bun build src/index.ts --outfile=dist/index.js --target=bun",
-    "test": "bun test"
+    "test": "bun test",
+    "prisma:generate": "bunx prisma generate",
+    "prisma:push": "bunx prisma db push",
+    "prisma:migrate": "bunx prisma migrate dev --name init",
+    "db:studio": "bunx prisma studio",
+    "postinstall": "bunx prisma generate"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5"
+    "typescript": "^5",
+    "prisma": "^5"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/swagger": "^1.3.1",
     "dotenv": "^17.2.2",
     "elysia": "^1.4.8",
-    "mongodb": "^6.20.0",
-    "mongoose": "^8.18.2"
+    "@prisma/client": "^5"
   },
   "engines": {
     "bun": ">=1.0.0"

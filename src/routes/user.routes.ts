@@ -1,8 +1,7 @@
 import { Elysia, t } from 'elysia';
-import { UserMongooseService } from '../services/user.mongoose.service';
-import { checkDatabaseConnection } from '../middleware/db-check';
+import { UserPrismaService } from '../services/user.prisma.service';
 
-const userService = new UserMongooseService();
+const userService = new UserPrismaService();
 
 // Validation schemas
 const createUserSchema = t.Object({

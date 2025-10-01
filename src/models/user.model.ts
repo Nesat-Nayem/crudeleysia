@@ -1,7 +1,5 @@
-import { ObjectId } from 'mongodb';
-
 export interface User {
-  _id?: ObjectId;
+  _id?: string; // mirrors Prisma `id` as `_id` for API compatibility
   name: string;
   email: string;
   age?: number;

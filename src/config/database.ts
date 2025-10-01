@@ -1,55 +1,13 @@
-import { MongoClient, Db } from 'mongodb';
 import dotenv from 'dotenv';
+import { prisma } from './prisma';
+import { connectDB as prismaConnect, closeDB as prismaClose } from './prisma';
 
-dotenv.config();
-
-let db: Db | null = null;
-let client: MongoClient | null = null;
-
-export async function connectDB(): Promise<Db> {
-  if (db) {
-    return db;
-  }
-
-  try {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) {
-      throw new Error('MONGODB_URI is not defined in environment variables');
-    }
-
-    // For Bun compatibility with MongoDB Atlas
-    client = new MongoClient(uri, {
-      tls: true,
-      tlsAllowInvalidCertificates: false,
-      tlsAllowInvalidHostnames: false
-    });
-    await client.connect();
-    
-    console.log('✅ Connected to MongoDB Atlas');
-    
-    // Get the database from the URI or use default
-    const dbName = uri.split('/').pop()?.split('?')[0] || 'elesyaproject';
-    db = client.db(dbName);
-    
-    return db;
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    throw error;
-  }
+// Only load .env in development
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
 }
 
-export async function closeDB(): Promise<void> {
-  if (client) {
-    await client.close();
-    db = null;
-    client = null;
-    console.log('MongoDB connection closed');
-  }
-}
-
-export function getDB(): Db {
-  if (!db) {
-    throw new Error('Database not initialized. Call connectDB first.');
-  }
-  return db;
-}
+// Re-export Prisma client and helpers for backward compatibility
+export const connectDB = prismaConnect;
+export const closeDB = prismaClose;
+export { prisma };

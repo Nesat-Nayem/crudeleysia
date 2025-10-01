@@ -1,22 +1,19 @@
 import { prisma } from '../config/prisma';
 import type { CreateUserDto, UpdateUserDto } from '../models/user.model';
+import type { User as PrismaUser } from '@prisma/client';
 
-export interface User {
+interface UserResponse {
   _id: string;
   name: string;
   email: string;
-  age?: number;
-  phone?: string;
-  address?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  age?: number | null;
+  phone?: string | null;
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-function isValidUUID(id: string): boolean {
-  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
-}
-
-function mapToUser(u: any): User {
+function toApiUser(u: PrismaUser): UserResponse {
   return {
     _id: u.id,
     name: u.name,
@@ -24,13 +21,17 @@ function mapToUser(u: any): User {
     age: u.age ?? undefined,
     phone: u.phone ?? undefined,
     address: u.address ?? undefined,
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
+    createdAt: u.createdAt.toISOString(),
+    updatedAt: u.updatedAt.toISOString()
   };
 }
 
-export class UserService {
-  async createUser(userData: CreateUserDto): Promise<User> {
+function isValidUUID(id: string): boolean {
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+}
+
+export class UserPrismaService {
+  async createUser(userData: CreateUserDto): Promise<UserResponse> {
     try {
       const created = await prisma.user.create({
         data: {
@@ -38,10 +39,10 @@ export class UserService {
           email: userData.email,
           age: userData.age,
           phone: userData.phone,
-          address: userData.address,
-        },
+          address: userData.address
+        }
       });
-      return mapToUser(created);
+      return toApiUser(created);
     } catch (error: any) {
       if (error?.code === 'P2002') {
         throw new Error('User with this email already exists');
@@ -50,29 +51,29 @@ export class UserService {
     }
   }
 
-  async getAllUsers(limit?: number, skip?: number): Promise<User[]> {
+  async getAllUsers(limit?: number, skip?: number): Promise<UserResponse[]> {
     const users = await prisma.user.findMany({
       skip: skip ?? 0,
       take: limit ?? 100,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'desc' }
     });
-    return users.map(mapToUser);
+    return users.map(toApiUser);
   }
 
-  async getUserById(id: string): Promise<User | null> {
+  async getUserById(id: string): Promise<UserResponse | null> {
     if (!isValidUUID(id)) {
       throw new Error('Invalid user ID format');
     }
     const user = await prisma.user.findUnique({ where: { id } });
-    return user ? mapToUser(user) : null;
+    return user ? toApiUser(user) : null;
   }
 
-  async getUserByEmail(email: string): Promise<User | null> {
+  async getUserByEmail(email: string): Promise<UserResponse | null> {
     const user = await prisma.user.findUnique({ where: { email } });
-    return user ? mapToUser(user) : null;
+    return user ? toApiUser(user) : null;
   }
 
-  async updateUser(id: string, updateData: UpdateUserDto): Promise<User | null> {
+  async updateUser(id: string, updateData: UpdateUserDto): Promise<UserResponse | null> {
     if (!isValidUUID(id)) {
       throw new Error('Invalid user ID format');
     }
@@ -84,10 +85,10 @@ export class UserService {
           email: updateData.email,
           age: updateData.age,
           phone: updateData.phone,
-          address: updateData.address,
-        },
+          address: updateData.address
+        }
       });
-      return mapToUser(updated);
+      return toApiUser(updated);
     } catch (error: any) {
       if (error?.code === 'P2002') {
         throw new Error('User with this email already exists');

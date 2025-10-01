@@ -1,98 +1,119 @@
-import { User } from '../models/user.schema';
-import type { IUser } from '../models/user.schema';
+import { prisma } from '../config/prisma';
 import type { CreateUserDto, UpdateUserDto } from '../models/user.model';
+import type { User as PrismaUser } from '@prisma/client';
+
+interface UserResponse {
+  _id: string;
+  name: string;
+  email: string;
+  age?: number | null;
+  phone?: string | null;
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toApiUser(u: PrismaUser): UserResponse {
+  return {
+    _id: u.id,
+    name: u.name,
+    email: u.email,
+    age: u.age ?? undefined,
+    phone: u.phone ?? undefined,
+    address: u.address ?? undefined,
+    createdAt: u.createdAt.toISOString(),
+    updatedAt: u.updatedAt.toISOString()
+  };
+}
+
+function isValidUUID(id: string): boolean {
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+}
 
 export class UserMongooseService {
-  async createUser(userData: CreateUserDto): Promise<IUser> {
+  async createUser(userData: CreateUserDto): Promise<UserResponse> {
     try {
-      const user = new User(userData);
-      return await user.save();
+      const created = await prisma.user.create({
+        data: {
+          name: userData.name,
+          email: userData.email,
+          age: userData.age,
+          phone: userData.phone,
+          address: userData.address
+        }
+      });
+      return toApiUser(created);
     } catch (error: any) {
-      if (error.code === 11000) {
+      if (error?.code === 'P2002') {
         throw new Error('User with this email already exists');
       }
       throw error;
     }
   }
 
-  async getAllUsers(limit?: number, skip?: number): Promise<IUser[]> {
-    try {
-      const query = User.find({});
-      
-      if (skip) query.skip(skip);
-      if (limit) query.limit(limit);
-      
-      return await query.exec();
-    } catch (error) {
-      throw error;
-    }
+  async getAllUsers(limit?: number, skip?: number): Promise<UserResponse[]> {
+    const users = await prisma.user.findMany({
+      skip: skip ?? 0,
+      take: limit ?? 100,
+      orderBy: { createdAt: 'desc' }
+    });
+    return users.map(toApiUser);
   }
 
-  async getUserById(id: string): Promise<IUser | null> {
-    try {
-      if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-        throw new Error('Invalid user ID format');
-      }
-      
-      return await User.findById(id);
-    } catch (error) {
-      throw error;
+  async getUserById(id: string): Promise<UserResponse | null> {
+    if (!isValidUUID(id)) {
+      throw new Error('Invalid user ID format');
     }
+    const user = await prisma.user.findUnique({ where: { id } });
+    return user ? toApiUser(user) : null;
   }
 
-  async getUserByEmail(email: string): Promise<IUser | null> {
-    try {
-      return await User.findOne({ email });
-    } catch (error) {
-      throw error;
-    }
+  async getUserByEmail(email: string): Promise<UserResponse | null> {
+    const user = await prisma.user.findUnique({ where: { email } });
+    return user ? toApiUser(user) : null;
   }
 
-  async updateUser(id: string, updateData: UpdateUserDto): Promise<IUser | null> {
+  async updateUser(id: string, updateData: UpdateUserDto): Promise<UserResponse | null> {
+    if (!isValidUUID(id)) {
+      throw new Error('Invalid user ID format');
+    }
     try {
-      if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-        throw new Error('Invalid user ID format');
-      }
-
-      // Check if email is being updated and if it already exists
-      if (updateData.email) {
-        const existingUser = await User.findOne({ 
+      const updated = await prisma.user.update({
+        where: { id },
+        data: {
+          name: updateData.name,
           email: updateData.email,
-          _id: { $ne: id }
-        });
-        if (existingUser) {
-          throw new Error('User with this email already exists');
+          age: updateData.age,
+          phone: updateData.phone,
+          address: updateData.address
         }
+      });
+      return toApiUser(updated);
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new Error('User with this email already exists');
       }
-
-      return await User.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true, runValidators: true }
-      );
-    } catch (error) {
+      if (error?.code === 'P2025') {
+        return null; // not found
+      }
       throw error;
     }
   }
 
   async deleteUser(id: string): Promise<boolean> {
+    if (!isValidUUID(id)) {
+      throw new Error('Invalid user ID format');
+    }
     try {
-      if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-        throw new Error('Invalid user ID format');
-      }
-
-      const result = await User.findByIdAndDelete(id);
-      return !!result;
-    } catch (error) {
+      await prisma.user.delete({ where: { id } });
+      return true;
+    } catch (error: any) {
+      if (error?.code === 'P2025') return false; // not found
       throw error;
     }
   }
 
   async getTotalCount(): Promise<number> {
-    try {
-      return await User.countDocuments();
-    } catch (error) {
-      throw error;
-    }
+    return prisma.user.count();
   }
 }
